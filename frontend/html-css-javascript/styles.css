@@ -1,0 +1,247 @@
+/* General Page Styling */
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    color: white;
+}
+
+/* Container (Card-Like Box) */
+.container {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    backdrop-filter: blur(12px);
+    max-width: 480px;
+    width: 90%;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 12px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Title Styling */
+h1 {
+    font-size: 28px;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #fff;
+    text-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.record-btn-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+}
+
+/* 🎤 Recording Button */
+#record-btn {
+    width: 60px;
+    height: 60px;
+    border: none;
+    border-radius: 50%;
+    background: white;
+    color: black;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s ease-in-out, transform 0.2s;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+#record-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+#record-btn.recording i {
+    color: #764ba2;
+}
+
+/* Task List */
+#task-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
+}
+
+/* Task Items - Clickable and Hover Effect */
+#task-list li {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    margin: 12px 0;
+    padding: 16px 20px;
+    border-radius: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.3s ease-in-out;
+    cursor: pointer; /* Make entire task clickable */
+    transition: background 0.3s ease, transform 0.2s;
+}
+
+/* Hover Effect */
+#task-list li:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.02);
+}
+
+/* Task Content - Align text and icons */
+.task-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* Task Checkbox and Text */
+.task-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+/* Checked Task - Strikethrough & Faded Text */
+.task-checkbox:checked + .task-text {
+    text-decoration: line-through;
+    color: rgba(255, 255, 255, 0.6);
+    transition: color 0.3s ease-in-out, text-decoration 0.3s ease-in-out;
+}
+
+/* Custom Checkbox Styling */
+.task-checkbox {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 5px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+    position: relative;
+}
+
+.task-checkbox:hover {
+    border-color: rgba(255, 255, 255, 1);
+}
+
+/* Checked State */
+.task-checkbox:checked {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Custom Checkmark */
+.task-checkbox:checked::after {
+    content: '\f00c'; /* FontAwesome checkmark */
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    color: #764ba2;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    font-size: 14px;
+    transform: translate(-50%, -50%);
+}
+
+/* Task Text */
+.task-text {
+    font-size: 16px;
+    text-align: left;
+    word-wrap: break-word;
+    color: white;
+    flex: 1;
+}
+
+/* Task Buttons (Icons) */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Icons Styling */
+.actions i {
+    color: white;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out, transform 0.2s;
+}
+
+.actions i:hover {
+    transform: scale(1.1);
+}
+
+.actions .edit-icon:hover {
+    color: white;
+}
+
+.actions .delete-icon:hover {
+    color: white;
+}
+
+/* Editable Input Field */
+.edit-input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    outline: none;
+    margin-right: 12px;
+}
+
+.edit-input:focus {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Fade-in Animation for Tasks */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 500px) {
+    .container {
+        padding: 20px;
+    }
+
+    button {
+        font-size: 14px;
+        padding: 10px 20px;
+    }
+
+    #task-list span {
+        font-size: 14px;
+    }
+
+    .edit-input {
+        font-size: 14px;
+        padding: 6px 10px;
+    }
+}
