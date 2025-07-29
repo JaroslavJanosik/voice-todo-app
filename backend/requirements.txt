@@ -2,5 +2,5 @@ Flask~=3.0.3
 Flask-CORS~=6.0.0
 Flask-WTF==1.1.1
 Flask-SQLAlchemy==3.0.5
-whisper==1.0.0
+openai-whisper==20250625
 Werkzeug~=3.1.3
