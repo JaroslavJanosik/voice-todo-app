@@ -38,8 +38,35 @@ PUBLIC_API_BASE_URL=http://127.0.0.1:5000
 - `npm run preview` – preview the production build
 - `npm run check` – run Svelte + TypeScript checks
 - `npm run typecheck` – alias for `npm run check`
-- `npm test` – alias for `npm run check`
+- `npm test` – run the full Playwright suite
+- `npm run test:e2e` – run browser end-to-end flows only
+- `npm run test:api` – run public API contract tests only
+- `npm run test:headed` – run Playwright in headed mode
+- `npm run test:debug` – open the Playwright debugger
+- `npm run test:report` – open the latest HTML report
 - `npm run quality` – run `check` and `build`
+
+## Playwright Test Stack
+
+The frontend now includes a professional Playwright setup with:
+
+- page object model under `tests/page-objects`
+- reusable API client + helpers under `tests/support`
+- shared fixtures under `tests/fixtures`
+- end-to-end coverage for empty state, CRUD flows, duplicate-save resilience, and mocked voice capture
+- API contract coverage for health, metadata, CRUD, and duplicate conflicts
+
+Install the browser runtime once:
+
+```bash
+npx playwright install chromium
+```
+
+Then run the suite:
+
+```bash
+npm test
+```
 
 ## Frontend Quality Highlights
 
@@ -47,4 +74,5 @@ PUBLIC_API_BASE_URL=http://127.0.0.1:5000
 - retry action for failed initial load
 - edit form stays open when save fails
 - summary cards for total, active, completed, and progress
-- `data-cy` hooks on key UI elements for future e2e coverage
+- `data-cy` hooks on key UI elements for Playwright coverage
+- microphone selector and live input meter for safer voice capture diagnostics

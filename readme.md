@@ -74,7 +74,27 @@ cd frontend/svelte
 npm run check
 npm run build
 npm run quality
+npx playwright install chromium
+npm test
 ```
+
+Playwright highlights:
+
+- page object model for the voice dashboard
+- end-to-end coverage for empty state, CRUD flows, duplicate-save resilience, and mocked voice capture
+- API contract coverage for `/health`, `/meta`, and task CRUD endpoints
+
+## CI
+
+GitHub Actions workflow lives in `.github/workflows/ci.yml` and runs automatically on every push and pull request.
+
+It covers:
+
+- backend pytest suite
+- backend syntax validation
+- frontend `npm run check`
+- frontend production build
+- Playwright API and end-to-end suite, with report artifacts uploaded on failure
 
 ## Docker Compose
 

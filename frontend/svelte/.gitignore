@@ -9,6 +9,9 @@ node_modules
 /build
 /dist
 .vite
+playwright-report
+test-results
+.playwright
 
 # OS
 .DS_Store
