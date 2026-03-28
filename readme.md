@@ -84,6 +84,7 @@ Playwright highlights:
 - page object model for the voice dashboard
 - end-to-end coverage for empty state, CRUD flows, duplicate-save resilience, and mocked voice capture
 - API contract coverage for `/health`, `/meta`, and task CRUD endpoints
+- can run either against Playwright-managed local servers or an already running Docker Compose stack
 
 ## CI
 
@@ -103,6 +104,12 @@ It covers:
 docker compose up --build
 ```
 
+If default host ports are already in use on your machine, you can override them:
+
+```bash
+BACKEND_PORT=5050 FRONTEND_PORT=4175 NGINX_PORT=8080 docker compose up --build
+```
+
 The container stack now uses production-oriented runtimes:
 
 - backend via Gunicorn
@@ -110,6 +117,7 @@ The container stack now uses production-oriented runtimes:
 - NGINX as the reverse proxy entry point
 - container healthchecks for backend and frontend
 - persistent Whisper cache under the shared backend data volume
+- backend startup preloads the configured Whisper model in Docker Compose so readiness reflects real voice availability
 
 Services:
 
@@ -118,10 +126,24 @@ Services:
 - Backend API: `http://localhost:5000`
 - Persistent backend data volume: `voice-todo-data`
 
+To run the Playwright suite against the running Docker stack instead of Playwright-managed dev servers:
+
+```bash
+docker compose up --build -d
+cd frontend/svelte
+PLAYWRIGHT_USE_EXTERNAL_SERVER=1 \
+PLAYWRIGHT_FRONTEND_BASE_URL=http://127.0.0.1:80 \
+PLAYWRIGHT_API_BASE_URL=http://127.0.0.1:5000 \
+npx playwright test
+```
+
+If you started Docker Compose with overridden host ports, use the matching frontend and backend URLs in those Playwright environment variables.
+
 ## Notes
 
 - `ffmpeg` is required for Whisper transcription.
 - The backend loads the Whisper model lazily, so the API can still boot even if transcription runtime is unavailable.
+- In Docker Compose, the backend now preloads the configured Whisper model before reporting itself healthy, so the stack does not come up “green” while voice transcription is still unusable.
 - `/health` is now a liveness-style endpoint that still reports degraded runtime details without pretending everything is green.
 - `/ready` is now a stricter readiness endpoint and returns `503` when the service is not fully ready to handle voice transcription.
 - The frontend can work with an explicit `PUBLIC_API_BASE_URL` or infer the backend URL automatically in local development.

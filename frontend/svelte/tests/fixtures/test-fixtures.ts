@@ -4,6 +4,8 @@ import { HomePage } from '../page-objects/home.page';
 import { TasksApiClient } from '../support/tasks-api-client';
 
 const PLAYWRIGHT_API_BASE_URL = 'http://127.0.0.1:5051';
+const apiBaseUrl =
+  getEnvironmentValue('PLAYWRIGHT_API_BASE_URL') || PLAYWRIGHT_API_BASE_URL;
 
 type TestFixtures = {
   homePage: HomePage;
@@ -16,7 +18,7 @@ export const test = base.extend<TestFixtures>({
   },
   tasksApi: async ({ playwright }, use) => {
     const requestContext = await playwright.request.newContext({
-      baseURL: PLAYWRIGHT_API_BASE_URL,
+      baseURL: apiBaseUrl,
     });
     const client = new TasksApiClient(requestContext);
 
@@ -28,3 +30,15 @@ export const test = base.extend<TestFixtures>({
 });
 
 export { expect } from '@playwright/test';
+
+function getEnvironmentValue(name: string) {
+  const processValue = (
+    globalThis as typeof globalThis & {
+      process?: {
+        env?: Record<string, string | undefined>;
+      };
+    }
+  ).process;
+
+  return processValue?.env?.[name];
+}
