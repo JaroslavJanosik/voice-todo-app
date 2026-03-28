@@ -41,6 +41,7 @@ Local URLs:
 - Frontend: `http://localhost:5173`
 - Backend API: `http://127.0.0.1:5000`
 - Health: `http://127.0.0.1:5000/health`
+- Readiness: `http://127.0.0.1:5000/ready`
 - Metadata: `http://127.0.0.1:5000/meta`
 
 ## API Shape
@@ -102,6 +103,14 @@ It covers:
 docker compose up --build
 ```
 
+The container stack now uses production-oriented runtimes:
+
+- backend via Gunicorn
+- frontend via SvelteKit Node adapter
+- NGINX as the reverse proxy entry point
+- container healthchecks for backend and frontend
+- persistent Whisper cache under the shared backend data volume
+
 Services:
 
 - NGINX entry point: `http://localhost`
@@ -113,4 +122,7 @@ Services:
 
 - `ffmpeg` is required for Whisper transcription.
 - The backend loads the Whisper model lazily, so the API can still boot even if transcription runtime is unavailable.
+- `/health` is now a liveness-style endpoint that still reports degraded runtime details without pretending everything is green.
+- `/ready` is now a stricter readiness endpoint and returns `503` when the service is not fully ready to handle voice transcription.
 - The frontend can work with an explicit `PUBLIC_API_BASE_URL` or infer the backend URL automatically in local development.
+- `npm run preview` in the Svelte app now runs the real Node adapter server instead of `vite preview`, so local production preview matches deployment behavior more closely.

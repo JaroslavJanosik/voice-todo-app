@@ -1,4 +1,5 @@
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 
 from exceptions import BadRequestError, ConflictError, NotFoundError
 from models.model import Task, db
@@ -18,7 +19,7 @@ def create_task(description):
 
     task = Task(description=normalized_description)
     db.session.add(task)
-    db.session.commit()
+    _commit_task_change()
 
     return task.to_dict()
 
@@ -29,7 +30,7 @@ def replace_task(task_id, description):
     _ensure_unique_description(normalized_description, current_task_id=task.id)
 
     task.description = normalized_description
-    db.session.commit()
+    _commit_task_change()
 
     return task.to_dict()
 
@@ -50,7 +51,7 @@ def patch_task(task_id, *, description=None, completed=None):
             raise BadRequestError('Task completion flag must be a boolean value.')
         task.completed = completed
 
-    db.session.commit()
+    _commit_task_change()
     return task.to_dict()
 
 
@@ -113,3 +114,18 @@ def _ensure_unique_description(description, current_task_id=None):
 
     if existing_task is not None and existing_task.id != current_task_id:
         raise ConflictError('Task already exists.')
+
+
+def _commit_task_change():
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        if _is_duplicate_task_integrity_error(exc):
+            raise ConflictError('Task already exists.') from exc
+        raise
+
+
+def _is_duplicate_task_integrity_error(error):
+    message = str(error).lower()
+    return 'uq_task_normalized_description' in message or 'unique constraint failed' in message

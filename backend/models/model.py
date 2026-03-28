@@ -5,6 +5,8 @@ db = SQLAlchemy()
 
 
 class Task(db.Model):
+    __tablename__ = 'task'
+
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(500), nullable=False)
     completed = db.Column(db.Boolean, default=False)

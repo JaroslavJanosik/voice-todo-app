@@ -3,6 +3,7 @@ from typing import Optional
 
 from flask import Flask
 from flask_cors import CORS
+from sqlalchemy import text
 from werkzeug.exceptions import HTTPException
 
 from api_response import failure_response
@@ -28,6 +29,7 @@ def create_app(config_class=Config):
     with app.app_context():
         _ensure_runtime_directories(app)
         db.create_all()
+        _ensure_database_guards(app)
 
     register_error_handlers(app)
 
@@ -48,6 +50,21 @@ def _get_sqlite_database_path(database_uri: str) -> Optional[Path]:
         return None
 
     return Path(database_uri[len(sqlite_prefix):]).expanduser()
+
+
+def _ensure_database_guards(app: Flask):
+    try:
+        db.session.execute(
+            text(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_task_normalized_description '
+                'ON task (lower(trim(description)))'
+            )
+        )
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.exception('Failed to create database guards.')
+        raise RuntimeError('Database guards could not be created.') from exc
 
 
 def register_error_handlers(app: Flask):

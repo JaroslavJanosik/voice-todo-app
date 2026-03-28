@@ -1,3 +1,8 @@
+from unittest.mock import patch
+
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from exceptions import BadRequestError, ConflictError, NotFoundError
 from models.model import Task, db
 from services import task_service
@@ -15,11 +20,17 @@ def test_create_task_rejects_duplicate_description(app):
         db.session.add(Task(description='Ship Release'))
         db.session.commit()
 
-        try:
+        with pytest.raises(ConflictError, match='Task already exists.'):
             task_service.create_task('  ship release ')
-            assert False, 'Expected duplicate task creation to fail.'
-        except ConflictError as error:
-            assert str(error) == 'Task already exists.'
+
+
+def test_create_task_translates_integrity_error_to_conflict(app):
+    with app.app_context(), patch(
+        'services.task_service.db.session.commit',
+        side_effect=IntegrityError('insert into task', {}, Exception('UNIQUE constraint failed: index uq_task_normalized_description'))
+    ):
+        with pytest.raises(ConflictError, match='Task already exists.'):
+            task_service.create_task('Ship Release')
 
 
 def test_patch_task_updates_completion_and_text(app):

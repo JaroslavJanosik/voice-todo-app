@@ -23,9 +23,12 @@ cp .env.example .env
 flask run
 ```
 
+`python-dotenv` is included in the backend dependencies, so `flask run` will pick up values from `.env` automatically during local development.
+
 ## Main Endpoints
 
 - `GET /health`
+- `GET /ready`
 - `GET /meta`
 - `GET /tasks`
 - `GET /tasks/{id}`

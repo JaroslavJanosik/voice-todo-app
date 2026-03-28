@@ -1,9 +1,9 @@
 from sqlalchemy import text
 
-from api_response import success_response
+from api_response import failure_response, success_response
 from flask import Blueprint, current_app
 from models.model import db
-from services.audio_service import is_transcription_runtime_ready
+from services.audio_service import get_transcription_runtime_status
 from services.task_service import get_task_stats
 
 system = Blueprint('system', __name__)
@@ -11,20 +11,17 @@ system = Blueprint('system', __name__)
 
 @system.route('/health', methods=['GET'])
 def health():
-    database_ok = _check_database()
-    transcription_ready = is_transcription_runtime_ready()
-    status = 'ok' if database_ok else 'degraded'
+    return success_response(_build_service_status())
 
-    return success_response(
-        {
-            "service": current_app.config['APP_NAME'],
-            "status": status,
-            "checks": {
-                "database": "ok" if database_ok else "error",
-                "transcriptionRuntime": "ready" if transcription_ready else "missing",
-            },
-        }
-    )
+
+@system.route('/ready', methods=['GET'])
+def ready():
+    service_status = _build_service_status()
+    is_ready = service_status['status'] == 'ok'
+    if is_ready:
+        return success_response(service_status)
+
+    return failure_response('Service is not ready.', status_code=503, result=service_status)
 
 
 @system.route('/meta', methods=['GET'])
@@ -49,3 +46,21 @@ def _check_database():
     except Exception:
         current_app.logger.exception('Database health check failed.')
         return False
+
+
+def _build_service_status():
+    database_ok = _check_database()
+    transcription_runtime = get_transcription_runtime_status(current_app.config['WHISPER_MODEL'])
+    status = 'ok' if database_ok and transcription_runtime['status'] == 'ready' else 'degraded'
+
+    return {
+        "service": current_app.config['APP_NAME'],
+        "status": status,
+        "checks": {
+            "database": "ok" if database_ok else "error",
+            "transcriptionRuntime": transcription_runtime['status'],
+        },
+        "details": {
+            "transcriptionRuntime": transcription_runtime['message'],
+        },
+    }

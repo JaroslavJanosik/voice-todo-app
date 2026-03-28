@@ -6,6 +6,7 @@ SvelteKit frontend for the Voice Todo App. It keeps the current visual language,
 
 - Node.js 22+ recommended
 - npm
+- Docker runtime uses SvelteKit Node adapter rather than `vite preview`
 
 ## Run Locally
 
@@ -35,7 +36,8 @@ PUBLIC_API_BASE_URL=http://127.0.0.1:5000
 
 - `npm run dev` – start development server
 - `npm run build` – create production build
-- `npm run preview` – preview the production build
+- `npm run start` – run the built Node adapter server
+- `npm run preview` – alias for the production server preview
 - `npm run check` – run Svelte + TypeScript checks
 - `npm run typecheck` – alias for `npm run check`
 - `npm test` – run the full Playwright suite
