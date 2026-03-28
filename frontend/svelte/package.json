@@ -9,7 +9,10 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"typecheck": "npm run check",
+		"test": "npm run check",
+		"quality": "npm run check && npm run build"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^4.0.0",

@@ -5,6 +5,7 @@ const taskList = document.getElementById('task-list');
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
+const API_BASE_URL = resolveApiUrl();
 
 // 🎤 Toggle Recording
 recordBtn.addEventListener('click', async () => {
@@ -25,12 +26,11 @@ recordBtn.addEventListener('click', async () => {
                 const formData = new FormData();
                 formData.append('file', audioBlob, 'recording.wav');
 
-                const response = await fetch('http://127.0.0.1:5000/upload', {
+                const data = await apiRequest('/upload', {
                     method: 'POST',
                     body: formData,
                 });
 
-                const data = await response.json();
                 if (data.transcription) {
                     addTask(data.transcription);
                 }
@@ -53,10 +53,7 @@ recordBtn.addEventListener('click', async () => {
 // ✅ Fetch & Load Tasks from API
 async function loadTasks() {
     try {
-        const response = await fetch('http://127.0.0.1:5000/tasks');
-        if (!response.ok) throw new Error('Failed to fetch tasks');
-
-        const tasks = await response.json();
+        const tasks = await apiRequest('/tasks');
         taskList.innerHTML = ''; // Clear existing tasks
 
         tasks.forEach(createTaskElement);
@@ -90,13 +87,11 @@ function createTaskElement(task) {
 // ➕ Add New Task (with smooth fade-in)
 async function addTask(description) {
     try {
-        const response = await fetch('http://127.0.0.1:5000/tasks', {
+        await apiRequest('/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ task: description }),
         });
-
-        if (!response.ok) throw new Error('Failed to add task');
 
         await loadTasks();
     } catch (error) {
@@ -111,12 +106,11 @@ async function toggleTask(taskId, checkbox) {
 
         const isChecked = checkbox.checked;
 
-        const response = await fetch(`http://127.0.0.1:5000/tasks/${taskId}/toggle`, {
-            method: 'PUT',
+        await apiRequest(`/tasks/${taskId}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: isChecked }),
         });
-
-        if (!response.ok) throw new Error('Failed to update task');
 
         // Update task UI
         const taskText = checkbox.nextElementSibling;
@@ -164,13 +158,11 @@ async function saveTask(taskId, saveIcon) {
         const taskElement = saveIcon.closest('li');
         const newText = taskElement.querySelector('.edit-input').value;
 
-        const response = await fetch(`http://127.0.0.1:5000/tasks/${taskId}`, {
-            method: 'PUT',
+        await apiRequest(`/tasks/${taskId}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ task: newText }),
         });
-
-        if (!response.ok) throw new Error('Failed to update task');
 
         taskElement.style.animation = "fadeIn 0.3s ease-in-out";
         loadTasks();
@@ -182,9 +174,7 @@ async function saveTask(taskId, saveIcon) {
 // 🗑 Delete Task
 async function deleteTask(taskId) {
     try {
-        const response = await fetch(`http://127.0.0.1:5000/tasks/${taskId}`, { method: 'DELETE' });
-        
-        if (!response.ok) throw new Error('Failed to delete task');
+        await apiRequest(`/tasks/${taskId}`, { method: 'DELETE' });
 
         await loadTasks();
     } catch (error) {
@@ -194,3 +184,36 @@ async function deleteTask(taskId) {
 
 // 🔄 Load tasks on page load
 loadTasks();
+
+function resolveApiUrl() {
+    const envValue = window.VOICE_TODO_API_URL || '';
+    if (envValue) {
+        return envValue.replace(/\/+$/, '');
+    }
+
+    const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalHost && window.location.port && window.location.port !== '5000' && window.location.port !== '80') {
+        return `${window.location.protocol}//${window.location.hostname}:5000`;
+    }
+
+    return '';
+}
+
+async function apiRequest(path, init = {}) {
+    const response = await fetch(`${API_BASE_URL}${path}`, init);
+    const payload = await response.json().catch(() => null);
+
+    if (payload && typeof payload === 'object' && 'isSuccess' in payload) {
+        if (!response.ok || !payload.isSuccess) {
+            throw new Error((payload.errorMessages || ['Request failed']).join(' '));
+        }
+
+        return payload.result;
+    }
+
+    if (!response.ok) {
+        throw new Error('Request failed');
+    }
+
+    return payload;
+}

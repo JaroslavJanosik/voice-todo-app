@@ -1,20 +1,27 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import Icon from '$components/Icon.svelte';
 
-  const dispatch = createEventDispatcher();
-
- interface Task {
+  interface Task {
     id: number;
     description: string;
     completed: boolean;
   }
 
   export let tasks: Task[] = [];
+  export let isLoading = false;
+  export let busyTaskIds: Set<number> = new Set();
+  export let onToggleTask: (taskId: number) => Promise<boolean> = async () => false;
+  export let onUpdateTask: (taskId: number, newDescription: string) => Promise<boolean> = async () => false;
+  export let onDeleteTask: (taskId: number) => Promise<boolean> = async () => false;
 
   let editingTaskId: number | null = null;
   let editedDescription = '';
 
   function startEditTask(taskId: number, currentDescription: string) {
+    if (isTaskBusy(taskId)) {
+      return;
+    }
+
     editingTaskId = taskId;
     editedDescription = currentDescription;
   }
@@ -24,105 +31,175 @@
     editedDescription = '';
   }
 
-  function saveTask(taskId: number) {
-    dispatch('updateTask', { taskId, newDescription: editedDescription });
-    cancelEditTask();
+  async function saveTask(taskId: number) {
+    const normalizedDescription = editedDescription.trim();
+    if (!normalizedDescription) {
+      return;
+    }
+
+    const didSave = await onUpdateTask(taskId, normalizedDescription);
+    if (didSave) {
+      cancelEditTask();
+    }
   }
 
-  function handleToggle(taskId: number) {
-    dispatch('toggleTask', { taskId });
+  async function handleToggle(taskId: number) {
+    if (isTaskBusy(taskId)) {
+      return;
+    }
+
+    await onToggleTask(taskId);
   }
 
-  function handleDelete(taskId: number) {
-    dispatch('deleteTask', { taskId });
+  async function handleDelete(taskId: number) {
+    if (isTaskBusy(taskId)) {
+      return;
+    }
+
+    const didDelete = await onDeleteTask(taskId);
+    if (didDelete && editingTaskId === taskId) {
+      cancelEditTask();
+    }
+  }
+
+  async function handleEditKeydown(event: KeyboardEvent, taskId: number) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEditTask();
+      return;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+      event.preventDefault();
+      await saveTask(taskId);
+    }
+  }
+
+  function isTaskBusy(taskId: number) {
+    return busyTaskIds.has(taskId);
   }
 </script>
 
-<ul>
-  {#each tasks as task (task.id)}
-    <li class:editing={editingTaskId === task.id}>
-      {#if editingTaskId === task.id}
-        <!-- Editing Mode -->
-        <div class="task-content">
-          <div class="task-check">
-            <input
-              type="checkbox"
-              class="task-checkbox"
-              checked={task.completed}
-              on:change|stopPropagation={() => handleToggle(task.id)}
-            />
-            <textarea
-              class="edit-input"
-              bind:value={editedDescription}
-              style="white-space: pre-wrap;"></textarea>
-          </div>
-          <div class="actions">
-            <button
-              type="button"
-              class="icon-button"
-              aria-label="Save changes"
-              on:click|stopPropagation={() => saveTask(task.id)}
-            >
-              <i class="fas fa-save" aria-hidden="true"></i>
-            </button>
+{#if isLoading}
+  <p class="state-message" aria-live="polite">Loading tasks...</p>
+{:else if tasks.length === 0}
+  <p class="state-message empty" aria-live="polite" data-cy="empty-state">No tasks yet. Record your first note to get started.</p>
+{:else}
+  <ul>
+    {#each tasks as task (task.id)}
+      <li
+        class:editing={editingTaskId === task.id}
+        class:is-busy={isTaskBusy(task.id)}
+        data-cy={`task-card-${task.id}`}
+      >
+        {#if editingTaskId === task.id}
+          <div class="task-content">
+            <div class="task-check">
+              <input
+                type="checkbox"
+                class="task-checkbox"
+                checked={task.completed}
+                disabled={isTaskBusy(task.id)}
+                on:change|stopPropagation={() => handleToggle(task.id)}
+                data-cy={`toggle-task-${task.id}`}
+              />
+              <textarea
+                class="edit-input"
+                bind:value={editedDescription}
+                rows="2"
+                disabled={isTaskBusy(task.id)}
+                on:keydown={(event) => handleEditKeydown(event, task.id)}
+                data-cy={`edit-input-${task.id}`}
+              ></textarea>
+            </div>
+            <div class="actions" data-cy={`edit-form-${task.id}`}>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Save changes"
+                disabled={isTaskBusy(task.id) || !editedDescription.trim()}
+                on:click|stopPropagation={() => saveTask(task.id)}
+                data-cy={`save-edit-${task.id}`}
+              >
+                <Icon name="save" />
+              </button>
 
-            <button
-              type="button"
-              class="icon-button"
-              aria-label="Cancel editing"
-              on:click|stopPropagation={cancelEditTask}
-            >
-              <i class="fas fa-times" aria-hidden="true"></i>
-            </button>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Cancel editing"
+                disabled={isTaskBusy(task.id)}
+                on:click|stopPropagation={cancelEditTask}
+                data-cy={`cancel-edit-${task.id}`}
+              >
+                <Icon name="close" />
+              </button>
+            </div>
           </div>
-        </div>
-      {:else}
-        <!-- View Mode -->
-        <div class="task-content">
-          <!-- Checkbox -->
-          <div class="task-check">
-            <input
-              type="checkbox"
-              class="task-checkbox"
-              checked={task.completed}
-              on:change|stopPropagation={() => handleToggle(task.id)}
-            />
-            <span
-              class="task-text"
-              style:text-decoration={task.completed ? 'line-through' : 'none'}
-              style:color={task.completed ? 'rgba(255, 255, 255, 0.6)' : 'white'}
-            >
-              {task.description}
-            </span>
-          </div>
-          <div class="actions">
-            <!-- Edit button with icon -->
-            <button
-              type="button"
-              class="icon-button"
-              aria-label="Edit task"
-              on:click|stopPropagation={() => startEditTask(task.id, task.description)}
-            >
-              <i class="fas fa-edit" aria-hidden="true"></i>
-            </button>
+        {:else}
+          <div class="task-content">
+            <div class="task-check">
+              <input
+                type="checkbox"
+                class="task-checkbox"
+                checked={task.completed}
+                disabled={isTaskBusy(task.id)}
+                on:change|stopPropagation={() => handleToggle(task.id)}
+                data-cy={`toggle-task-${task.id}`}
+              />
+              <span
+                class="task-text"
+                style:text-decoration={task.completed ? 'line-through' : 'none'}
+                style:color={task.completed ? 'rgba(255, 255, 255, 0.6)' : 'white'}
+                data-cy={`todo-status-${task.id}`}
+              >
+                {task.description}
+              </span>
+            </div>
+            <div class="actions">
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Edit task"
+                disabled={isTaskBusy(task.id)}
+                on:click|stopPropagation={() => startEditTask(task.id, task.description)}
+                data-cy={`edit-task-${task.id}`}
+              >
+                <Icon name="edit" />
+              </button>
 
-            <!-- Delete button with icon -->
-            <button
-              type="button"
-              class="icon-button"
-              aria-label="Delete task"
-              on:click|stopPropagation={() => handleDelete(task.id)}
-            >
-              <i class="fas fa-trash" aria-hidden="true"></i>
-            </button>
+              <button
+                type="button"
+                class="icon-button"
+                aria-label="Delete task"
+                disabled={isTaskBusy(task.id)}
+                on:click|stopPropagation={() => handleDelete(task.id)}
+                data-cy={`delete-task-${task.id}`}
+              >
+                <Icon name="trash" />
+              </button>
+            </div>
           </div>
-        </div>
-      {/if}
-    </li>
-  {/each}
-</ul>
+        {/if}
+      </li>
+    {/each}
+  </ul>
+{/if}
 
-<style scoped>
+<style>
+  .state-message {
+    margin: 20px 0 0;
+    padding: 18px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.92);
+    text-align: center;
+  }
+
+  .state-message.empty {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
   ul {
     list-style: none;
     padding: 0;
@@ -139,6 +216,10 @@
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
     animation: fadeIn 0.3s ease-in-out;
     transition: background 0.3s ease, transform 0.2s;
+  }
+
+  li.is-busy {
+    opacity: 0.72;
   }
 
   li:hover {
@@ -164,6 +245,8 @@
     font-size: 16px;
     text-align: left;
     flex: 1;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .actions {
@@ -178,13 +261,22 @@
     cursor: pointer;
     padding: 0;
     color: inherit;
-    font-size: 1em;
+    font-size: 18px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
   }
 
   .icon-button:hover {
     transform: scale(1.1);
+  }
+
+  .icon-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
   }
 
   .edit-input {
@@ -198,7 +290,8 @@
     color: white;
     outline: none;
     margin-right: 10px;
-    resize: none;
+    resize: vertical;
+    min-height: 44px;
   }
 
   @keyframes fadeIn {
@@ -206,6 +299,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -222,10 +316,15 @@
     cursor: pointer;
     transition: all 0.3s ease-in-out;
     position: relative;
+    flex-shrink: 0;
   }
 
   .task-checkbox:hover {
     border-color: rgba(255, 255, 255, 1);
+  }
+
+  .task-checkbox:disabled {
+    cursor: not-allowed;
   }
 
   .task-checkbox:checked {
@@ -234,14 +333,33 @@
   }
 
   .task-checkbox:checked::after {
-    content: '\f00c';
-    font-family: "Font Awesome 5 Free";
-    font-weight: 900;
-    color: #764ba2;
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    font-size: 14px;
-    transform: translate(-50%, -50%);
+    width: 5px;
+    height: 10px;
+    border: solid #764ba2;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+  }
+
+  @media (max-width: 640px) {
+    li {
+      padding: 14px 16px;
+    }
+
+    .task-content {
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .task-check {
+      align-items: flex-start;
+    }
+
+    .actions {
+      padding-top: 2px;
+    }
   }
 </style>

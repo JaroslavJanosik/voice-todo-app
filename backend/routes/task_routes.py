@@ -1,87 +1,55 @@
-from flask import Blueprint, request, jsonify
-from models.model import db, Task
-from flask_cors import cross_origin
+from api_response import success_response
+from flask import Blueprint, request
+from services import task_service
 
 tasks = Blueprint('tasks', __name__)
 
 
 @tasks.route('', methods=['GET'])
-@cross_origin()
 def get_tasks():
-    try:
-        tasks = Task.query.order_by(Task.created_at.desc()).all()
-        return jsonify([task.to_dict() for task in tasks])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return success_response(task_service.list_tasks())
+
+
+@tasks.route('/stats', methods=['GET'])
+def get_task_stats():
+    return success_response(task_service.get_task_stats())
+
+
+@tasks.route('/<int:task_id>', methods=['GET'])
+def get_task(task_id):
+    return success_response(task_service.get_task(task_id))
 
 
 @tasks.route('', methods=['POST'])
-@cross_origin()
 def add_task():
-    try:
-        data = request.get_json()
-        if not data or 'task' not in data:
-            return jsonify({"error": "Task description is required"}), 400
-
-        new_task = Task(description=data['task'])
-        db.session.add(new_task)
-        db.session.commit()
-
-        return jsonify({
-            "message": "Task added successfully",
-            "task": new_task.to_dict()
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    payload = request.get_json(silent=True) or {}
+    return success_response(task_service.create_task(payload.get('task')), status_code=201)
 
 
 @tasks.route('/<int:task_id>/toggle', methods=['PUT'])
-@cross_origin()
 def toggle_task(task_id):
-    try:
-        task = Task.query.get_or_404(task_id)
-        task.completed = not task.completed
-        db.session.commit()
-
-        return jsonify({
-            "message": "Task status updated",
-            "task": task.to_dict()
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    return success_response(task_service.toggle_task(task_id))
 
 
 @tasks.route('/<int:task_id>', methods=['PUT'])
-@cross_origin()
 def update_task(task_id):
-    try:
-        data = request.get_json()
-        if not data or 'task' not in data:
-            return jsonify({"error": "Task description is required"}), 400
+    payload = request.get_json(silent=True) or {}
+    return success_response(task_service.replace_task(task_id, payload.get('task')))
 
-        task = Task.query.get_or_404(task_id)
-        task.description = data['task']
-        db.session.commit()
 
-        return jsonify({
-            "message": "Task updated successfully",
-            "task": task.to_dict()
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+@tasks.route('/<int:task_id>', methods=['PATCH'])
+def patch_task(task_id):
+    payload = request.get_json(silent=True) or {}
+    return success_response(
+        task_service.patch_task(
+            task_id,
+            description=payload.get('task'),
+            completed=payload.get('completed'),
+        )
+    )
 
 
 @tasks.route('/<int:task_id>', methods=['DELETE'])
-@cross_origin()
 def delete_task(task_id):
-    try:
-        task = Task.query.get_or_404(task_id)
-        db.session.delete(task)
-        db.session.commit()
-        return jsonify({"message": "Task deleted successfully"})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+    task_service.delete_task(task_id)
+    return success_response({"message": "Task deleted successfully"})

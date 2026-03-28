@@ -1,84 +1,167 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
 
-  const dispatch = createEventDispatcher();
+  import Icon from '$components/Icon.svelte';
+  import { uploadAudio } from '../config';
+
+  type RecordButtonEvents = {
+    transcribed: { transcription: string };
+    error: { message: string };
+  };
+
+  const dispatch = createEventDispatcher<RecordButtonEvents>();
+
+  export let disabled = false;
 
   let isRecording = false;
   let isProcessing = false;
-  let mediaRecorder: MediaRecorder;
+  let mediaRecorder: MediaRecorder | null = null;
+  let mediaStream: MediaStream | null = null;
   let audioChunks: Blob[] = [];
+  let recordingMimeType = '';
+
+  onDestroy(() => {
+    stopActiveStream();
+  });
 
   async function toggleRecording() {
+    if (disabled || isProcessing) {
+      return;
+    }
+
     if (isRecording) {
-      // User clicked stop
-      mediaRecorder.stop();
-    } else {
-      // User clicked start
-      try {
-        audioChunks = [];
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder?.stop();
+      return;
+    }
 
-        mediaRecorder.ondataavailable = (event) => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      dispatchError('Audio recording is not supported in this browser.');
+      return;
+    }
+
+    try {
+      audioChunks = [];
+      recordingMimeType = getPreferredMimeType();
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = recordingMimeType
+        ? new MediaRecorder(mediaStream, { mimeType: recordingMimeType })
+        : new MediaRecorder(mediaStream);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
           audioChunks.push(event.data);
-        };
+        }
+      };
 
-        mediaRecorder.onstop = async () => {
-          // Once recording stops, show spinner
-          isProcessing = true;
+      mediaRecorder.onstop = async () => {
+        if (audioChunks.length === 0) {
+          stopActiveStream();
+          resetState();
+          dispatchError('Recording was empty. Please try again.');
+          return;
+        }
 
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          const formData = new FormData();
-          formData.append('file', audioBlob, 'recording.wav');
+        isProcessing = true;
 
-          try {
-            const response = await fetch('http://127.0.0.1:5000/upload', {
-              method: 'POST',
-              body: formData
-            });
+        const resolvedMimeType = mediaRecorder?.mimeType || recordingMimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: resolvedMimeType });
+        const extension = getFileExtension(resolvedMimeType);
+        try {
+          const data = await uploadAudio(audioBlob, `recording.${extension}`);
 
-            const data = await response.json();
-            // Dispatch transcribed text to parent
-            if (data.transcription) {
-              dispatch('transcribed', { transcription: data.transcription });
-            }
-          } catch (error) {
-            console.error('Error uploading audio:', error);
-          } finally {
-            // Hide spinner once processing is complete
-            isProcessing = false;
-            isRecording = false;
+          if (data?.transcription) {
+            dispatch('transcribed', { transcription: data.transcription });
+          } else {
+            dispatchError('No speech was detected in the recording.');
           }
-        };
+        } catch (error) {
+          dispatchError(getErrorMessage(error, 'Failed to transcribe audio.'));
+        } finally {
+          stopActiveStream();
+          resetState();
+        }
+      };
 
-        mediaRecorder.start();
-        isRecording = true;
-      } catch (err) {
-        console.error('Error starting recording:', err);
+      mediaRecorder.start();
+      isRecording = true;
+    } catch (error) {
+      stopActiveStream();
+      resetState();
+      dispatchError(getRecordingStartError(error));
+    }
+  }
+
+  function dispatchError(message: string) {
+    dispatch('error', { message });
+  }
+
+  function stopActiveStream() {
+    mediaStream?.getTracks().forEach((track) => track.stop());
+    mediaStream = null;
+  }
+
+  function resetState() {
+    audioChunks = [];
+    recordingMimeType = '';
+    mediaRecorder = null;
+    isProcessing = false;
+    isRecording = false;
+  }
+
+  function getPreferredMimeType() {
+    const supportedTypes = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4'];
+    return supportedTypes.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? '';
+  }
+
+  function getFileExtension(mimeType: string) {
+    if (mimeType.includes('ogg')) {
+      return 'ogg';
+    }
+
+    if (mimeType.includes('mp4')) {
+      return 'mp4';
+    }
+
+    return 'webm';
+  }
+
+  function getErrorMessage(error: unknown, fallbackMessage: string) {
+    return error instanceof Error ? error.message : fallbackMessage;
+  }
+
+  function getRecordingStartError(error: unknown) {
+    if (error instanceof DOMException) {
+      if (error.name === 'NotAllowedError') {
+        return 'Microphone access was denied.';
+      }
+
+      if (error.name === 'NotFoundError') {
+        return 'No microphone was found on this device.';
       }
     }
+
+    return getErrorMessage(error, 'Unable to start recording.');
   }
 </script>
 
 <button
   on:click={toggleRecording}
   class:is-recording={isRecording}
-  disabled={isProcessing}
+  disabled={disabled || isProcessing}
   aria-label="Toggle Recording"
+  aria-busy={isProcessing}
+  data-cy="record-button"
 >
   {#if isProcessing}
-    <!-- Show spinner if we're processing -->
-    <i class="fas fa-spinner fa-spin"></i>
+    <Icon name="spinner" className="spinner" />
   {:else if isRecording}
-    <!-- Show stop icon if currently recording -->
-    <i class="fas fa-stop-circle"></i>
+    <Icon name="stop" />
   {:else}
-    <!-- Show microphone icon if not recording or processing -->
-    <i class="fas fa-microphone"></i>
+    <Icon name="microphone" />
   {/if}
 </button>
 
-<style scoped>
+<style>
   button {
     width: 60px;
     height: 60px;
@@ -95,8 +178,13 @@
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
     margin: 0 auto;
   }
-  
-  button.is-recording i {
+
+  button :global(svg) {
+    width: 26px;
+    height: 26px;
+  }
+
+  button.is-recording {
     color: #764ba2;
   }
 
