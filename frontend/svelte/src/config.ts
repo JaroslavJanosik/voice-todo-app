@@ -9,6 +9,11 @@ type ApiEnvelope<T> = {
   result: T;
 };
 
+type UploadAudioOptions = {
+  language?: string;
+  durationMs?: number;
+};
+
 export const API_BASE_URL = resolveApiUrl(
   env.PUBLIC_API_BASE_URL,
   typeof window === 'undefined' ? undefined : window.location.origin
@@ -33,9 +38,21 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   return payload as T;
 }
 
-export async function uploadAudio(blob: Blob, filename: string): Promise<{ transcription: string }> {
+export async function uploadAudio(
+  blob: Blob,
+  filename: string,
+  options: UploadAudioOptions = {}
+): Promise<{ transcription: string }> {
   const formData = new FormData();
   formData.append('file', blob, filename);
+
+  if (options.language) {
+    formData.append('language', options.language);
+  }
+
+  if (typeof options.durationMs === 'number' && Number.isFinite(options.durationMs)) {
+    formData.append('durationMs', String(Math.max(0, Math.round(options.durationMs))));
+  }
 
   return apiRequest<{ transcription: string }>('/upload', {
     method: 'POST',
@@ -64,6 +81,7 @@ export function resolveApiUrl(envValue?: string | null, browserOrigin?: string) 
   try {
     const currentLocation = new URL(browserOrigin);
     const isLocalHost = currentLocation.hostname === 'localhost' || currentLocation.hostname === '127.0.0.1';
+    const isVitePreview = currentLocation.port === '4173';
     const usesDirectDevServer =
       !!currentLocation.port &&
       currentLocation.port !== '80' &&
@@ -71,7 +89,8 @@ export function resolveApiUrl(envValue?: string | null, browserOrigin?: string) 
       currentLocation.port !== '5000';
 
     if (isLocalHost && usesDirectDevServer) {
-      return `${currentLocation.protocol}//${currentLocation.hostname}:5000`;
+      // Keep browser requests same-origin during Vite dev and let the proxy forward them.
+      return isVitePreview ? DEFAULT_API_BASE_URL : '';
     }
 
     return '';

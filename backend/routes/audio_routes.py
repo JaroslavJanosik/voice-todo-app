@@ -11,6 +11,8 @@ def upload_audio():
     transcription = transcribe_uploaded_file(
         file_storage,
         model_name=current_app.config['WHISPER_MODEL'],
+        language=request.form.get('language'),
+        duration_ms=parse_optional_int(request.form.get('durationMs')),
     )
 
     return success_response(
@@ -18,3 +20,13 @@ def upload_audio():
             "transcription": transcription,
         }
     )
+
+
+def parse_optional_int(value):
+    if value is None:
+        return None
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
